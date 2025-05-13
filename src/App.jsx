@@ -15,9 +15,9 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { Sidebar, Menu, MenuItem, useProSidebar } from 'react-pro-sidebar';
 import './index.css';
 
+const apiKey = "emnbag2b9jt4";
 
 
-const apiKey = import.meta.env.VITE_STREAM_API_KEY;
 
 const customTheme = {
   '--str-chat-background': '#000000',
@@ -321,32 +321,45 @@ function App() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-const verifyPin = async () => {
-  setIsLoading(true);
-  setError('');
-  try {
-    fetch('https://chat-backend-lwq1.onrender.com/verify-pin', { method: 'POST', 
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Verification failed');
-    setResult(data);
+  const verifyPin = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch('https://chat-backend-lwq1.onrender.com/verify-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Verification failed');
+      setResult(data);
 
-    // Initialize Stream Chat client with the token from backend
-    const client = StreamChat.getInstance(apiKey);
-    await client.connectUser(
-      { id: data.userId, name: data.name },
-      data.token
-    );
-    setChatClient(client);
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+      // Initialize Stream Chat client with the token from backend
+      const client = StreamChat.getInstance(apiKey);
 
+      // Defensive: disconnect any previous client before connecting new user
+      if (chatClient) {
+        await chatClient.disconnectUser();
+      }
+
+      try {
+        await client.connectUser(
+          { id: data.userId, name: data.name },
+          data.token
+        );
+        setChatClient(client);
+      } catch (err) {
+        setError("Stream connect error: " + err.message);
+        console.error("Stream connectUser error:", err);
+        setChatClient(null);
+      }
+    } catch (err) {
+      setError(err.message);
+      setChatClient(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     if (chatClient) await chatClient.disconnectUser();
@@ -355,6 +368,7 @@ const verifyPin = async () => {
     setPin('');
   };
 
+  // Only render chat UI if client is connected
   if (chatClient) {
     return (
       <div style={customTheme}>
@@ -365,6 +379,7 @@ const verifyPin = async () => {
     );
   }
 
+  // PIN entry screen
   return (
     <div
       style={{
@@ -436,5 +451,4 @@ const verifyPin = async () => {
   );
 }
 
-// Wrap your app with ProSidebarProvider at the root (e.g. in index.js)
 export default App;
