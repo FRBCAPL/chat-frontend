@@ -2,7 +2,7 @@
   "name": "stream-chat-frontend",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://yourusername.github.io/chat-frontend",
+  "homepage": "https://FRBCAPL.github.io/chat-frontend",
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

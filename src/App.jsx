@@ -15,6 +15,8 @@ import 'stream-chat-react/dist/css/v2/index.css';
 import { Sidebar, Menu, MenuItem, useProSidebar } from 'react-pro-sidebar';
 import './index.css';
 
+
+
 const apiKey = import.meta.env.VITE_STREAM_API_KEY;
 
 const customTheme = {
@@ -319,70 +321,31 @@ function App() {
   const [result, setResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-app.post('/verify-pin', async (req, res) => {
-  // Log the incoming request for debugging
-  console.log('Received POST /verify-pin', req.body);
-
-  const { pin } = req.body;
-  if (!pin) {
-    console.warn('No PIN provided in request body');
-    return res.status(400).json({ error: 'PIN is required' });
-  }
-
+const verifyPin = async () => {
+  setIsLoading(true);
+  setError('');
   try {
-    // Attempt to get the user from Google Sheets
-    const user = await getUserByPin(pin);
-    if (!user) {
-      console.warn(`Invalid PIN attempted: ${pin}`);
-      return res.status(401).json({ error: 'Invalid PIN' });
-    }
-
-    // Upsert user in Stream Chat
-    await serverClient.upsertUser({ id: user.id, name: user.name });
-
-    // Create or get the user's personal channel
-    const userChannel = serverClient.channel('messaging', user.id, {
-      name: user.name,
-      members: [user.id],
+    fetch('https://chat-backend-lwq1.onrender.com/verify-pin', { method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
     });
-    try {
-      await userChannel.create();
-      console.log(`Created personal channel for user: ${user.id}`);
-    } catch (err) {
-      if (err.code === 16) { // Already exists
-        console.log(`Personal channel for user ${user.id} already exists`);
-      } else {
-        console.error('Error creating personal channel:', err);
-      }
-    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Verification failed');
+    setResult(data);
 
-    // Ensure user is a member of the general channel
-    const generalChannel = serverClient.channel('messaging', 'general', { name: 'General' });
-    try {
-      await generalChannel.create();
-      console.log('Created general channel');
-    } catch (err) {
-      if (err.code === 16) { // Already exists
-        console.log('General channel already exists');
-      } else {
-        console.error('Error creating general channel:', err);
-      }
-    }
-    await generalChannel.addMembers([user.id]);
-    console.log(`Added user ${user.id} to general channel`);
-
-    // Create the Stream Chat token
-    const token = serverClient.createToken(user.id);
-
-    // Respond with user info and token
-    res.json({ userId: user.id, name: user.name, token });
-    console.log(`Successfully verified PIN for user: ${user.id}`);
-  } catch (error) {
-    // Log the error for debugging
-    console.error('Error in /verify-pin:', error);
-    res.status(500).json({ error: error.message || 'Internal server error' });
+    // Initialize Stream Chat client with the token from backend
+    const client = StreamChat.getInstance(apiKey);
+    await client.connectUser(
+      { id: data.userId, name: data.name },
+      data.token
+    );
+    setChatClient(client);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setIsLoading(false);
   }
-});
+};
 
 
   const handleLogout = async () => {
